@@ -1,0 +1,11 @@
+Options -Indexes
+RewriteEngine On
+
+# Protege archivos internos cuando el proyecto se sirve desde htdocs.
+RewriteRule ^(?:app|database|docs|tests|routes)(?:/|$) - [F,L]
+RewriteRule ^(?:\.git|\.env)(?:/|$) - [F,L]
+
+# Front controller para las rutas amigables.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

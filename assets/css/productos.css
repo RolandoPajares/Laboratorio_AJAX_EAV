@@ -1,0 +1,28 @@
+.grupo-filtro {
+  margin: 0 0 22px;
+  padding: 0;
+  border: 0;
+}
+.grupo-filtro legend {
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+.opcion-filtro {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  color: #334155;
+  cursor: pointer;
+}
+.opcion-filtro input {
+  accent-color: #2563eb;
+}
+.opcion-filtro small {
+  margin-left: auto;
+  color: #94a3b8;
+}
+.texto-suave {
+  color: #64748b;
+  font-size: 13px;
+}
