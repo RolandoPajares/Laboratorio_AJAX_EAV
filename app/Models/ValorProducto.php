@@ -1,32 +1,52 @@
 <?php
 declare(strict_types=1);
-final class ValorProducto
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+final class ValorProducto extends Model
 {
-    public function __construct(private PDO $db) {}
-    public function filters(int $categoryId, array $activeFilters = [], ?int $excludeAttribute = null): array
+    protected $table = 'valores_productos';
+    public $timestamps = false;
+    protected $guarded = [];
+
+    public function producto(): BelongsTo
     {
-        $sql = 'SELECT a.id AS atributo_id, a.nombre AS atributo, vp.valor, COUNT(DISTINCT p.id) AS conteo
-                FROM productos p INNER JOIN valores_productos vp ON vp.producto_id = p.id
-                INNER JOIN atributos a ON a.id = vp.atributo_id WHERE p.id_categoria = :categoria_id';
-        $params = ['categoria_id' => $categoryId];
-        $this->appendFilterExists($sql, $params, $activeFilters, $excludeAttribute);
-        $sql .= ' GROUP BY a.id, a.nombre, vp.valor ORDER BY a.nombre, vp.valor';
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
+        return $this->belongsTo(Producto::class, 'producto_id');
     }
-    private function appendFilterExists(string &$sql, array &$params, array $filters, ?int $excludeAttribute): void
+
+    public function atributo(): BelongsTo
     {
-        $index = 0;
-        foreach ($filters as $attributeId => $values) {
-            if ($excludeAttribute !== null && (int) $attributeId === $excludeAttribute) continue;
-            $placeholders = [];
-            foreach ($values as $value) { $key = 'f' . $index++; $placeholders[] = ':' . $key; $params[$key] = $value; }
-            if ($placeholders !== []) {
-                $key = 'a' . $index++;
-                $sql .= ' AND EXISTS (SELECT 1 FROM valores_productos vpx WHERE vpx.producto_id = p.id AND vpx.atributo_id = :' . $key . ' AND vpx.valor IN (' . implode(',', $placeholders) . '))';
-                $params[$key] = (int) $attributeId;
-            }
-        }
+        return $this->belongsTo(Atributo::class, 'atributo_id');
+    }
+
+    public static function filters(int $categoryId, array $activeFilters = [], ?int $excludeAttribute = null): array
+    {
+        $query = self::query()
+            ->with('atributo')
+            ->whereHas('producto', function ($productQuery) use ($categoryId, $activeFilters, $excludeAttribute): void {
+                $productQuery->where('id_categoria', $categoryId);
+                
+                foreach ($activeFilters as $attributeId => $values) {
+                
+                    if ($excludeAttribute !== null && (int) $attributeId === $excludeAttribute) continue;
+                    $productQuery->whereHas('valoresProductos', fn ($valueQuery) => $valueQuery
+                        ->where('atributo_id', (int) $attributeId)
+                        ->whereIn('valor', $values));
+                }
+            })
+            ->when($excludeAttribute !== null, fn ($query) => $query->where('atributo_id', $excludeAttribute))
+            ->select(['atributo_id', 'valor'])
+            ->selectRaw('COUNT(DISTINCT producto_id) AS conteo')
+            ->groupBy('atributo_id', 'valor')
+            ->orderBy('atributo_id')
+            ->orderBy('valor');
+
+        return $query->get()->map(fn (self $item): array => [
+            'atributo_id' => (int) $item->atributo_id,
+            'atributo' => (string) $item->atributo->nombre,
+            'valor' => (string) $item->valor,
+            'conteo' => (int) $item->conteo,
+        ])->all();
     }
 }

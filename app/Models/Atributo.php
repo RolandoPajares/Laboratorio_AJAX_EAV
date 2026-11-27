@@ -1,18 +1,33 @@
 <?php
 declare(strict_types=1);
-final class Atributo
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+final class Atributo extends Model
 {
-    public function __construct(private PDO $db) {}
-    public function idsForCategory(int $categoryId): array
+    protected $table = 'atributos';
+    public $timestamps = false;
+    protected $guarded = [];
+
+    public function valoresProductos(): HasMany
     {
-        $stmt = $this->db->prepare('SELECT DISTINCT vp.atributo_id FROM valores_productos vp INNER JOIN productos p ON p.id = vp.producto_id WHERE p.id_categoria = :categoria_id');
-        $stmt->execute(['categoria_id' => $categoryId]);
-        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        return $this->hasMany(ValorProducto::class, 'atributo_id');
     }
-    public function name(int $id): string
+
+    public static function idsForCategory(int $categoryId): array
     {
-        $stmt = $this->db->prepare('SELECT nombre FROM atributos WHERE id = :id');
-        $stmt->execute(['id' => $id]);
-        return (string) ($stmt->fetchColumn() ?: 'Atributo');
+        return self::query()
+            ->whereHas('valoresProductos.producto', fn ($query) => $query->where('id_categoria', $categoryId))
+            ->distinct()
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    public static function nameById(int $id): string
+    {
+        return (string) (self::query()->whereKey($id)->value('nombre') ?: 'Atributo');
     }
 }

@@ -1,13 +1,17 @@
 <?php
 declare(strict_types=1);
-final class Categoria
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+final class Categoria extends Model
 {
-    public function __construct(private PDO $db) {}
-    public function all(): array { return $this->db->query('SELECT id, nombre FROM categorias ORDER BY nombre, id')->fetchAll(); }
-    public function exists(int $id): bool
+    protected $table = 'categorias';
+    public $timestamps = false;
+    protected $guarded = [];
+
+    public function productos(): HasMany
     {
-        $stmt = $this->db->prepare('SELECT 1 FROM categorias WHERE id = :id');
-        $stmt->execute(['id' => $id]);
-        return (bool) $stmt->fetchColumn();
+        return $this->hasMany(Producto::class, 'id_categoria');
     }
 }
